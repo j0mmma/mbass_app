@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='index.css') }}"
+    />
+    <title>Register - Flask Backendless App</title>
+  </head>
+  <body>
+    <main>
+      <h2>User Registration</h2>
+      <form method="POST" action="/register">
+        <label for="username">Username:</label><br />
+        <input type="text" id="username" name="username" required /><br /><br />
+
+        <label for="password">Password:</label><br />
+        <input
+          type="password"
+          id="password"
+          name="password"
+          required
+        /><br /><br />
+
+        <label for="email">Email:</label><br />
+        <input type="email" id="email" name="email" required /><br /><br />
+
+        <label for="age">Age:</label><br />
+        <input type="number" id="age" name="age" min="5" required /><br /><br />
+
+        <label for="gender">Gender:</label><br />
+        <select id="gender" name="gender" required>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+          <option value="other">Other</option></select
+        ><br /><br />
+
+        <label for="country">Country:</label><br />
+        <input type="text" id="country" name="country" required /><br /><br />
+
+        <input type="submit" value="Register" />
+      </form>
+    </main>
+  </body>
+</html>
