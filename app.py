@@ -140,7 +140,6 @@ def restore_password():
         else:
             return jsonify({'error': 'Failed to send password recovery email.', 'details': response.json()}), response.status_code
     
-    # Render the restore password form (GET request)
     return render_template('restore_password.html')
 
 
