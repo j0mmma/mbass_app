@@ -200,6 +200,33 @@ def create_folder(foldername):
     else:
         return jsonify({'error': 'User not authenticated. Please log in.'}), 401
 
+@app.route('/delete_folder/<foldername>', methods=['GET'])
+def delete_folder(foldername):
+    if 'user_id' in session:
+        username = session['user_name']
+        
+        if 'user_token' not in session:
+            return jsonify({'error': 'User token missing. Please login again.'}), 401
+        
+        url = f'{FOLDER_URL}/{username}/{foldername}'
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'user-token': session['user_token']
+        }
+        
+        try:
+            response = requests.delete(url, headers=headers)
+
+            return jsonify({'message': f'Folder "{foldername}" deleted successfully.'}), 200
+        
+        except requests.exceptions.RequestException as e:
+            return jsonify({'error': 'Failed to connect to Backendless', 'details': str(e)}), 500
+    
+    else:
+        return jsonify({'error': 'User not authenticated. Please log in.'}), 401
+
+
 # === File Work ===
 
 def create_user_directory(username):
