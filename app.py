@@ -7,8 +7,6 @@ app = Flask(__name__)
 app.secret_key = 'secret'
 
 
-
-
 APPLICATION_ID = '4A129354-ABA1-427C-9693-F3DA203B7165'
 REST_KEY = '07C00E2C-F1A5-4DA5-950F-26F7C1E7A983'
 SUBDOMAIN = 'scenicicicle-us.backendless.app'
@@ -50,7 +48,6 @@ def register_user():
             'country': country
         }
         
-        # url = f'{BACKENDLESS_REST_API_BASE}/users/register'
         url = REGISTER_URL
         headers = {'Content-Type': 'application/json'}
         response = requests.post(url, headers=headers, json=payload)
@@ -58,7 +55,6 @@ def register_user():
         if response.status_code == 200:
             user_data = response.json()
             
-            # Create user directory and 'shared with me' folder
             try:
                 create_user_directory(username)
                 create_shared_directory(username)
@@ -77,20 +73,16 @@ def login():
         email = request.form['email']
         password = request.form['password']
         
-        # Prepare payload for Backendless login using email
         payload = {
-            'login': email,  # Use email for login
+            'login': email,
             'password': password
         }
         
-        # Send POST request to Backendless for user login
         url = LOGIN_URL
         headers = {'Content-Type': 'application/json'}
         response = requests.post(url, headers=headers, json=payload)
         
-        # Handle Backendless response
         if response.status_code == 200:
-            # Successful login, store user session data including user token
             user_data = response.json()
             session['user_id'] = user_data['objectId']
             session['user_email'] = user_data['email']
@@ -98,9 +90,8 @@ def login():
             session['user_age'] = user_data['age']
             session['user_gender'] = user_data['gender']
             session['user_country'] = user_data['country']
-            session['user_token'] = user_data['user-token']  # Assuming Backendless returns user-token
+            session['user_token'] = user_data['user-token']
             
-            # Redirect to dashboard or any other desired page
             return jsonify({
                 'message': 'Login successful',
                 'user_id': user_data['objectId'],
@@ -109,17 +100,15 @@ def login():
                 'user_age': user_data['age'],
                 'user_gender': user_data['gender'],
                 'user_country': user_data['country'],
-                'user_token': user_data['user-token']  # Assuming Backendless returns user-token
+                'user_token': user_data['user-token']
             }), 200
         else:
             return jsonify({'error': 'Failed to login', 'details': response.json()}), response.status_code
     
-    # Render the login form (GET request)
     return render_template('login.html')
 
 @app.route('/logout')
 def logout():
-    # Clear session variables to log out the user
     session.pop('user_id', None)
     session.pop('user_email', None)
     session.pop('user_name', None)
@@ -127,7 +116,6 @@ def logout():
     session.pop('user_gender', None)
     session.pop('user_country', None)
     
-    # Render the logout screen
     return render_template('logout.html')
 
 @app.route('/dashboard')
@@ -143,12 +131,10 @@ def restore_password():
     if request.method == 'POST':
         email = request.form['email']
         
-        # The email should be included directly in the URL
         url = f'{RESTORE_PASSWORD_URL}/{email}'
         headers = {'Content-Type': 'application/json'}
-        response = requests.get(url, headers=headers)  # Note: This should be a GET request
+        response = requests.get(url, headers=headers)  
         
-        # Handle Backendless response for password recovery
         if response.status_code == 200:
             return jsonify({'message': 'Password recovery email sent successfully.', 'response': response.json()}), 200
         else:
@@ -176,7 +162,6 @@ def user_directory():
             response = requests.get(url, headers=headers)
             if response.status_code == 200:
                 directory_contents = response.json()
-                print(directory_contents)
                 # if request.headers.get('Content-Type') == 'application/json':
                 #     return jsonify(directory_contents)
                 # else:
