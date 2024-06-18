@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User Directory</title>
+  </head>
+  <body>
+    <h1>User Directory Contents</h1>
+
+    <ul>
+      {% for item in directory_contents %}
+      <li>
+        {{ item.name }} {% if item.type == 'DIRECTORY' %}
+        <ul>
+          {% for sub_item in item.contents %}
+          <li>{{ sub_item.name }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </body>
+</html>
