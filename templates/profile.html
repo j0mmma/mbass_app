@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profile - My Flask App</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='index.css') }}"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Profile</h1>
+
+      {% with messages = get_flashed_messages(with_categories=true) %} {% if
+      messages %} {% for category, message in messages %}
+      <div class="alert alert-{{ category }}">{{ message }}</div>
+      {% endfor %} {% endif %} {% endwith %}
+
+      <form
+        method="POST"
+        enctype="multipart/form-data"
+        action="{{ url_for('profile') }}"
+      >
+        <label for="username">Username:</label>
+        <input
+          type="text"
+          id="username"
+          name="username"
+          value="{{ user['user_name'] }}"
+          required
+        />
+
+        <label for="age">Age:</label>
+        <input
+          type="number"
+          id="age"
+          name="age"
+          value="{{ user['user_age'] }}"
+          required
+        />
+
+        <label for="gender">Gender:</label>
+        <input
+          type="text"
+          id="gender"
+          name="gender"
+          value="{{ user['user_gender'] }}"
+          required
+        />
+
+        <label for="country">Country:</label>
+        <input
+          type="text"
+          id="country"
+          name="country"
+          value="{{ user['user_country'] }}"
+          required
+        />
+
+        <label for="profile_picture">Profile Picture:</label>
+        <input
+          type="file"
+          id="profile_picture"
+          name="profile_picture"
+          accept=".jpg, .jpeg, .png"
+        />
+
+        <button type="submit">Update Profile</button>
+      </form>
+
+      <hr />
+
+      <a href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+    </div>
+  </body>
+</html>

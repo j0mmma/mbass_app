@@ -8,3 +8,7 @@ body {
   align-items: center; /* Center vertically */
   min-height: 100vh; /* Ensure full viewport height */
 }
+
+input {
+  display: block;
+}

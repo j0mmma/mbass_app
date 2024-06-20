@@ -2,10 +2,10 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 import requests
 import os
 
+
 app = Flask(__name__)
 
 app.secret_key = 'secret'
-
 
 APPLICATION_ID = '4A129354-ABA1-427C-9693-F3DA203B7165'
 REST_KEY = '07C00E2C-F1A5-4DA5-950F-26F7C1E7A983'
@@ -17,6 +17,8 @@ REGISTER_URL = f'https://{SUBDOMAIN}/api/users/register'
 LOGIN_URL = f'https://{SUBDOMAIN}/api/users/login'
 LOGOUT_URL = f'https://{SUBDOMAIN}/api/users/logout'
 RESTORE_PASSWORD_URL = f'https://{SUBDOMAIN}/api/users/restorepassword'
+
+USERS_URL = f'https://{SUBDOMAIN}/api/users'
 
 FOLDER_URL = f'https://{SUBDOMAIN}/api/files/users'
 WEB_FOLDER = f'https://{SUBDOMAIN}/api/files/web'
@@ -39,13 +41,16 @@ def register_user():
         if age < 5:
             return jsonify({'error': 'Registration not allowed for users under 5 years old'}), 400
         
+        profile_picture_url = ''
+
         payload = {
             'password': password,
             'email': email,
             'name': username,
             'age': age,
             'gender': gender,
-            'country': country
+            'country': country,
+            'profile_picture_url': profile_picture_url
         }
         
         url = REGISTER_URL
@@ -56,8 +61,8 @@ def register_user():
             user_data = response.json()
             
             try:
-                create_user_directory(username)
-                create_shared_directory(username)
+                create_user_directory(email)
+                create_shared_directory(email)
             except Exception as e:
                 return jsonify({'error': 'Failed to create user directories', 'details': str(e)}), 500
             
@@ -66,6 +71,7 @@ def register_user():
             return jsonify({'error': 'Failed to register user', 'details': response.json()}), response.status_code
     
     return render_template('register.html')
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -91,6 +97,7 @@ def login():
             session['user_gender'] = user_data['gender']
             session['user_country'] = user_data['country']
             session['user_token'] = user_data['user-token']
+            session['profile_picture_url'] = user_data['profile_picture_url']
             
             return jsonify({
                 'message': 'Login successful',
@@ -107,6 +114,7 @@ def login():
     
     return render_template('login.html')
 
+
 @app.route('/logout')
 def logout():
     session.pop('user_id', None)
@@ -117,13 +125,6 @@ def logout():
     session.pop('user_country', None)
     
     return render_template('logout.html')
-
-@app.route('/dashboard')
-def dashboard():
-    if 'user_id' in session and 'user_token' in session:
-        return render_template('dashboard.html')
-    else:
-        return redirect(url_for('login'))
 
 
 @app.route('/restore_password', methods=['GET', 'POST'])
@@ -146,12 +147,12 @@ def restore_password():
 @app.route('/user_directory')
 def user_directory():
     if 'user_id' in session:
-        username = session['user_name']
+        email = session['user_email']
 
         if 'user_token' not in session:
             return jsonify({'error': 'User token missing. Please login again.'}), 401
         
-        url = f'{FOLDER_URL}/{username}/'
+        url = f'{FOLDER_URL}/{email}/'
         headers = {
             'Content-Type': 'application/json',
             'user-token': session['user_token']
@@ -161,9 +162,6 @@ def user_directory():
             response = requests.get(url, headers=headers)
             if response.status_code == 200:
                 directory_contents = response.json()
-                # if request.headers.get('Content-Type') == 'application/json':
-                #     return jsonify(directory_contents)
-                # else:
                 return render_template('user_directory.html', directory_contents=directory_contents)
             else:
                 return jsonify({'error': f'Failed to fetch user directory contents. Status code: {response.status_code}', 'details': response.json()}), response.status_code
@@ -172,14 +170,15 @@ def user_directory():
     else:
         return redirect(url_for('login'))
 
+
 @app.route('/create_folder/<foldername>', methods=['GET'])
 def create_folder(foldername):
     if 'user_id' in session:
-        username = session['user_name']
+        email = session['user_email']
         if 'user_token' not in session:
             return jsonify({'error': 'User token missing. Please login again.'}), 401
         
-        url = f'{FOLDER_URL}/{username}/{foldername}'
+        url = f'{FOLDER_URL}/{email}/{foldername}'
         
         headers = {
             'Content-Type': 'application/json',
@@ -199,15 +198,16 @@ def create_folder(foldername):
     else:
         return jsonify({'error': 'User not authenticated. Please log in.'}), 401
 
+
 @app.route('/delete_folder/<foldername>', methods=['GET'])
 def delete_folder(foldername):
     if 'user_id' in session:
-        username = session['user_name']
+        email = session['user_email']
         
         if 'user_token' not in session:
             return jsonify({'error': 'User token missing. Please login again.'}), 401
         
-        url = f'{FOLDER_URL}/{username}/{foldername}'
+        url = f'{FOLDER_URL}/{email}/{foldername}'
         
         headers = {
             'Content-Type': 'application/json',
@@ -226,16 +226,123 @@ def delete_folder(foldername):
         return jsonify({'error': 'User not authenticated. Please log in.'}), 401
 
 
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+
+@app.route('/profile', methods=['GET', 'POST'])
+def profile():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        email = session['user_email']
+
+        if 'profile_picture' in request.files:
+            file = request.files['profile_picture']
+            if file.filename == '':
+                flash('No selected file', 'danger')
+                return redirect(request.url)
+
+            if file and allowed_file(file.filename):
+                filename = file.filename
+
+                backendless_filepath = f'{FOLDER_URL}/{email}/{filename}?overwrite=true'
+
+                headers = {
+                    'user-token': session['user_token']
+                }
+                files = {
+                    'file': (filename, file.stream, file.mimetype)
+                }
+                response = requests.post(backendless_filepath, headers=headers, files=files)
+
+                if response.status_code == 200:
+                    profile_picture_url = backendless_filepath.replace('\\', '/')
+                    user_id = session['user_id']
+                    update_profile_picture_url(user_id, profile_picture_url)
+
+                    update_backendless_user(user_id, {
+                        'profile_picture_url': profile_picture_url
+                    })
+
+                    update_session_data(user_id)
+
+                    flash('Profile picture updated successfully', 'success')
+                else:
+                    error_message = f'Failed to upload file to Backendless. Error: {response.text}'
+                    flash(error_message, 'danger')
+
+        return redirect(url_for('profile'))
+
+    return render_template('profile.html', user=session)
+
+
+def update_backendless_user(user_id, data):
+    url = f'{USERS_URL}/{user_id}'
+    headers = {
+        'Content-Type': 'application/json',
+        'user-token': session['user_token']
+    }
+    try:
+        response = requests.put(url, headers=headers, json=data)
+        response.raise_for_status()  # Raise exception for non-2xx status codes
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(f'Failed to update user in Backendless: {str(e)}')
+
+def update_session_data(user_id):
+    user = {
+        'email': session['user_email'],
+        'name': session['user_name'],
+        'age': session['user_age'],
+        'gender': session['user_gender'],
+        'country': session['user_country'],
+        'profile_picture_url': session['profile_picture_url']
+    }
+    session['user'] = user
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+
+
+
+def update_profile_picture_url(user_id, profile_picture_url):
+    payload = {
+        'profile_picture_url': profile_picture_url
+    }
+    url = f'{USERS_URL}/{user_id}'
+    headers = {
+        'Content-Type': 'application/json',
+        'user-token': session['user_token']
+    }
+    response = requests.put(url, headers=headers, json=payload)
+
+    if response.status_code != 200:
+        error_message = f'Failed to update profile picture URL in the database. Error: {response.text}'
+        flash(error_message, 'danger')
+
+
+@app.route('/dashboard')
+def dashboard():
+    if 'user_id' in session and 'user_token' in session:
+        profile_picture_url = session.get('profile_picture_url', None)
+        print(profile_picture_url)
+        return render_template('dashboard.html', profile_picture_url=profile_picture_url)
+    else:
+        return redirect(url_for('login'))
+
 # === File Work ===
 
-def create_user_directory(username):
-    url = f'{FOLDER_URL}/{username}/'
+def create_user_directory(email):
+    url = f'{FOLDER_URL}/{email}/'
     headers = {
         'Content-Type': 'application/json'
     }
     response = requests.post(url, headers=headers)
     if response.status_code != 200:
-        raise Exception(f"Failed to create user directory {username}. Error: {response.json()}")
+        raise Exception(f"Failed to create user directory {email}. Error: {response.json()}")
+
 
 def create_shared_directory(username):
     url = f'{FOLDER_URL}/{username}/shared-with-me/'
@@ -245,6 +352,8 @@ def create_shared_directory(username):
     response = requests.post(url, headers=headers)
     if response.status_code != 200:
         raise Exception(f"Failed to create shared directory for {username}. Error: {response.json()}")
+
+
 
 
 
