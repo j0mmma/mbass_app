@@ -364,40 +364,72 @@ def users():
 @app.route('/add_friend/<user_email>', methods=['GET'])
 def add_friend(user_email):
     current_user_id = session['user_id']
+    current_user_email = session['user_email']
     user_token = session['user_token']
 
-    response = requests.get(f'{USERS_TABLE_URL}/{current_user_id}', headers={'user-token': user_token})
-    if response.status_code == 200:
-        current_user = response.json()
-        friends = current_user.get('friends', [])
-        if user_email not in friends:
-            friends.append(user_email)
-            update_user_data(current_user_id, {'friends': friends}, user_token)
-            flash('Friend added successfully', 'success')
+    current_user_response = requests.get(f'{USERS_TABLE_URL}/{current_user_id}', headers={'user-token': user_token})
+    if current_user_response.status_code == 200:
+        current_user = current_user_response.json()
+        current_user_friends = current_user.get('friends', [])
+
+        if user_email not in current_user_friends:
+            current_user_friends.append(user_email)
+            update_user_data(current_user_id, {'friends': current_user_friends}, user_token)
+
+            other_user_response = requests.get(f"{USERS_TABLE_URL}?where=email%3D'{user_email}'", headers={'user-token': user_token})
+            if other_user_response.status_code == 200:
+                other_user = other_user_response.json()[0]
+                other_user_id = other_user['objectId']
+                other_user_friends = other_user.get('friends', [])
+
+                if current_user_email not in other_user_friends:
+                    other_user_friends.append(current_user_email)
+                    update_user_data(other_user_id, {'friends': other_user_friends}, user_token)
+                    flash('Friend added successfully', 'success')
+                else:
+                    flash('User is already your friend', 'info')
+            else:
+                flash('Failed to fetch the other user data', 'danger')
         else:
             flash('User is already your friend', 'info')
     else:
-        flash('Failed to add friend', 'danger')
+        flash('Failed to fetch current user data', 'danger')
 
     return redirect(url_for('users'))
 
 @app.route('/remove_friend/<user_email>', methods=['GET'])
 def remove_friend(user_email):
     current_user_id = session['user_id']
+    current_user_email = session['user_email']
     user_token = session['user_token']
 
-    response = requests.get(f'{USERS_TABLE_URL}/{current_user_id}', headers={'user-token': user_token})
-    if response.status_code == 200:
-        current_user = response.json()
-        friends = current_user.get('friends', [])
-        if user_email in friends:
-            friends.remove(user_email)
-            update_user_data(current_user_id, {'friends': friends}, user_token)
-            flash('Friend removed successfully', 'success')
+    current_user_response = requests.get(f'{USERS_TABLE_URL}/{current_user_id}', headers={'user-token': user_token})
+    if current_user_response.status_code == 200:
+        current_user = current_user_response.json()
+        current_user_friends = current_user.get('friends', [])
+
+        if user_email in current_user_friends:
+            current_user_friends.remove(user_email)
+            update_user_data(current_user_id, {'friends': current_user_friends}, user_token)
+
+            other_user_response = requests.get(f"{USERS_TABLE_URL}?where=email%3D'{user_email}'", headers={'user-token': user_token})
+            if other_user_response.status_code == 200:
+                other_user = other_user_response.json()[0]
+                other_user_id = other_user['objectId']
+                other_user_friends = other_user.get('friends', [])
+
+                if current_user_email in other_user_friends:
+                    other_user_friends.remove(current_user_email)
+                    update_user_data(other_user_id, {'friends': other_user_friends}, user_token)
+                    flash('Friend removed successfully', 'success')
+                else:
+                    flash('User is not in your friends list', 'info')
+            else:
+                flash('Failed to fetch the other user data', 'danger')
         else:
             flash('User is not in your friends list', 'info')
     else:
-        flash('Failed to remove friend', 'danger')
+        flash('Failed to fetch current user data', 'danger')
 
     return redirect(url_for('users'))
 
