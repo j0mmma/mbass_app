@@ -12,7 +12,9 @@
   <body>
     <div class="container">
       <h1>Users</h1>
-
+      <div>
+        <a href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+      </div>
       <h2>All Users</h2>
       <table>
         <thead>
@@ -23,21 +25,21 @@
           </tr>
         </thead>
         <tbody>
-          {% if users %} {% for user in users %}
+          {% if users %} {% for user in users %} {% set remove_friend_url =
+          url_for('remove_friend', user_email=user['email']) %} {% set
+          add_friend_url = url_for('add_friend', user_email=user['email']) %}
           <tr>
             <td>{{ user['name'] }}</td>
             <td>{{ user['email'] }}</td>
             <td>
-              {% if user['objectId'] in friends %}
-              <!-- <button onclick="location.href='{{ url_for('remove_friend', user_id=user['objectId']) }}'">Remove Friend</button> -->
-
-              {% elif user['objectId'] in pending_requests %}
-              <button disabled>Request Sent</button>
-              {% elif user['objectId'] in sent_requests %}
-              <!-- <button onclick="location.href='{{ url_for("accept_request", user_id=user["objectId"]) }}'">Accept</button> -->
-              <!-- <button onclick="location.href='{{ url_for("decline_request", user_id=user["objectId"]) }}'">Decline</button> -->
+              {% if user['email'] in friends %}
+              <button onclick="location.href='{{ remove_friend_url }}'">
+                Remove Friend
+              </button>
               {% else %}
-              <!-- <button onclick="location.href='{{ url_for("add_friend", user_id=user["objectId"]) }}'">Add Friend</button> -->
+              <button onclick="location.href='{{ add_friend_url }}'">
+                Add Friend
+              </button>
               {% endif %}
             </td>
           </tr>
@@ -58,28 +60,6 @@
       </ul>
       {% else %}
       <p>No friends yet.</p>
-      {% endif %}
-
-      <h2>Pending Requests</h2>
-      {% if pending_requests %}
-      <ul>
-        {% for request in pending_requests %}
-        <li>{{ request }}</li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p>No pending requests.</p>
-      {% endif %}
-
-      <h2>Received Requests</h2>
-      {% if sent_requests %}
-      <ul>
-        {% for request in sent_requests %}
-        <li>{{ request }}</li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p>No received requests.</p>
       {% endif %}
     </div>
   </body>

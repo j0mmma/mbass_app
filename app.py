@@ -340,92 +340,60 @@ def users():
         return redirect(url_for('login'))
 
     current_user_id = session['user_id']
+    headers = {'user-token': session['user_token']}
 
-    # Fetch all users
-    response = requests.get(USERS_TABLE_URL, headers={'user-token': session['user_token']})
+    response = requests.get(USERS_TABLE_URL, headers=headers)
 
     if response.status_code == 200:
         all_users = response.json()
         users = [user for user in all_users if user['objectId'] != current_user_id]
 
-        # Fetch current user data to get friends, pending_requests, and sent_requests
-        current_user_response = requests.get(f'{USERS_TABLE_URL}/{current_user_id}', headers={'user-token': session['user_token']})
+        current_user_response = requests.get(f'{USERS_TABLE_URL}/{current_user_id}', headers=headers)
         
         if current_user_response.status_code == 200:
             current_user = current_user_response.json()
-
             friends = current_user.get('friends', []) or []
-            pending_requests = current_user.get('pending_requests', []) or []
-            sent_requests = current_user.get('sent_requests', []) or []
         else:
             friends = []
-            pending_requests = []
-            sent_requests = []
 
-        return render_template('users.html', users=users, friends=friends, pending_requests=pending_requests, sent_requests=sent_requests)
+        return render_template('users.html', users=users, friends=friends)
     else:
         flash('Failed to fetch users from Backendless', 'danger')
         return redirect(url_for('dashboard'))
 
-
-@app.route('/userss', methods=['GET'])
-def list_users():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-
-    headers = {
-        'Content-Type': 'application/json',
-        'user-token': session['user_token']
-    }
-
-    response = requests.get(USERS_TABLE_URL, headers=headers)
-
-    if response.status_code == 200:
-        users = response.json()
-        current_user_id = session['user_id']
-        users = [user for user in users if user['objectId'] != current_user_id]  # Exclude current user
-
-        return render_template('users.html', users=users)
-    else:
-        flash(f'Failed to fetch users. Error: {response.text}', 'danger')
-        return redirect(url_for('dashboard'))
-
-
-@app.route('/add_friend/<user_id>', methods=['GET'])
-def add_friend(user_id):
+@app.route('/add_friend/<user_email>', methods=['GET'])
+def add_friend(user_email):
     current_user_id = session['user_id']
     user_token = session['user_token']
 
-    # Fetch current user data
-    response = requests.get(f'{USERS_TABLE_URL}/{current_user_id}', headers={'user-token': user_token})
-    if response.status_code == 200:
-        current_user = response.json()
-        sent_requests = current_user.get('sent_requests', [])
-        if user_id not in sent_requests:
-            sent_requests.append(user_id)
-            update_user_data(current_user_id, {'sent_requests': sent_requests}, user_token)
-            flash('Friend request sent', 'success')
-        else:
-            flash('Friend request already sent', 'info')
-    else:
-        flash('Failed to send friend request', 'danger')
-
-    return redirect(url_for('users'))
-
-@app.route('/remove_friend/<user_id>', methods=['GET'])
-def remove_friend(user_id):
-    current_user_id = session['user_id']
-    user_token = session['user_token']
-
-    # Fetch current user data
     response = requests.get(f'{USERS_TABLE_URL}/{current_user_id}', headers={'user-token': user_token})
     if response.status_code == 200:
         current_user = response.json()
         friends = current_user.get('friends', [])
-        if user_id in friends:
-            friends.remove(user_id)
+        if user_email not in friends:
+            friends.append(user_email)
             update_user_data(current_user_id, {'friends': friends}, user_token)
-            flash('Friend removed', 'success')
+            flash('Friend added successfully', 'success')
+        else:
+            flash('User is already your friend', 'info')
+    else:
+        flash('Failed to add friend', 'danger')
+
+    return redirect(url_for('users'))
+
+@app.route('/remove_friend/<user_email>', methods=['GET'])
+def remove_friend(user_email):
+    current_user_id = session['user_id']
+    user_token = session['user_token']
+
+    response = requests.get(f'{USERS_TABLE_URL}/{current_user_id}', headers={'user-token': user_token})
+    if response.status_code == 200:
+        current_user = response.json()
+        friends = current_user.get('friends', [])
+        if user_email in friends:
+            friends.remove(user_email)
+            update_user_data(current_user_id, {'friends': friends}, user_token)
+            flash('Friend removed successfully', 'success')
         else:
             flash('User is not in your friends list', 'info')
     else:
@@ -433,53 +401,14 @@ def remove_friend(user_id):
 
     return redirect(url_for('users'))
 
-@app.route('/accept_request/<user_id>', methods=['GET'])
-def accept_request(user_id):
-    current_user_id = session['user_id']
-    user_token = session['user_token']
-
-    # Fetch current user data
-    response = requests.get(f'{USERS_TABLE_URL}/{current_user_id}', headers={'user-token': user_token})
-    if response.status_code == 200:
-        current_user = response.json()
-        friends = current_user.get('friends', [])
-        pending_requests = current_user.get('pending_requests', [])
-        if user_id in pending_requests:
-            pending_requests.remove(user_id)
-            friends.append(user_id)
-            update_user_data(current_user_id, {'pending_requests': pending_requests, 'friends': friends}, user_token)
-            flash('Friend request accepted', 'success')
-        else:
-            flash('No pending request from this user', 'info')
-    else:
-        flash('Failed to accept friend request', 'danger')
-
-    return redirect(url_for('users'))
-
-@app.route('/decline_request/<user_id>', methods=['GET'])
-def decline_request(user_id):
-    current_user_id = session['user_id']
-    user_token = session['user_token']
-
-    # Fetch current user data
-    response = requests.get(f'{USERS_TABLE_URL}/{current_user_id}', headers={'user-token': user_token})
-    if response.status_code == 200:
-        current_user = response.json()
-        pending_requests = current_user.get('pending_requests', [])
-        if user_id in pending_requests:
-            pending_requests.remove(user_id)
-            update_user_data(current_user_id, {'pending_requests': pending_requests}, user_token)
-            flash('Friend request declined', 'success')
-        else:
-            flash('No pending request from this user', 'info')
-    else:
-        flash('Failed to decline friend request', 'danger')
-
-    return redirect(url_for('users'))
-
 def update_user_data(user_id, data, user_token):
-    response = requests.put(f'{USERS_TABLE_URL}/{user_id}', headers={'user-token': user_token}, json=data)
-    return response.status_code == 200
+    headers = {
+        'Content-Type': 'application/json',
+        'user-token': user_token
+    }
+    response = requests.put(f'{USERS_TABLE_URL}/{user_id}', headers=headers, json=data)
+    return response
+
 
 # === File Work ===
 
